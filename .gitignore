@@ -1,4 +1,3 @@
-./dataset
-./DS_Store
+dataset/
 .DS_Store
-./ds
+ds/
