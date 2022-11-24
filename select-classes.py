@@ -53,14 +53,14 @@ if __name__ == "__main__":
                     means[key] = float(line.split(",")[2])
             break
 
-    sorted_variances = dict(sorted(variances.items(), key=lambda item: item[1]))
-    sorted_means = dict(sorted(means.items(), key=lambda item: item[1]))
+    # sorted_variances = dict(sorted(variances.items(), key=lambda item: item[1]))
+    # sorted_means = dict(sorted(means.items(), key=lambda item: item[1]))
 
-    plt.plot(sorted_variances.values(), ".-")
-    for idx, key in enumerate(sorted_variances.keys()):
+    plt.plot(variances.values(), ".-")
+    for idx, key in enumerate(variances.keys()):
         plt.annotate(
             key,
-            (idx, sorted_variances[key]),
+            (idx, variances[key]),
             textcoords="offset points",
             xytext=(0, 10),
             ha="center",
