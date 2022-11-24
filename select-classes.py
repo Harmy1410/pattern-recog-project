@@ -29,17 +29,19 @@ def get_data_from_dir(path: str) -> dict[str, np.ndarray]:
 if __name__ == "__main__":
 
     variances = {}
+    means = {}
 
     for root, _, files in os.walk("."):
         if "class_variances" not in "\t".join(files):
             data = get_data_from_dir(DATASET_PATH)
             for key in (pb := tqdm(data.keys())):
+                val = data[key]
                 pb.set_description("Calculating Variance")
-                var = np.var(data[key])
-                variances[key] = var
+                variances[key] = np.var(val)
+                means[key] = np.mean(val)
             with open("class_variances.csv", "w+") as cv:
                 writer = csv.writer(cv)
-                a = [[key, val] for key, val in variances.items()]
+                a = [(key, variances[key], means[key]) for key in variances.keys()]
                 writer.writerows(a)
             break
         else:
@@ -47,9 +49,20 @@ if __name__ == "__main__":
             with open("class_variances.csv") as cv:
                 for line in cv.readlines():
                     key = line.split(",")[0]
-                    val = float(line.split(",")[1])
-                    variances[key] = val
+                    variances[key] = float(line.split(",")[1])
+                    means[key] = float(line.split(",")[2])
             break
 
-    plt.plot(variances.values(), "o-", label="HAHAHAHAHAHAH")
+    sorted_variances = dict(sorted(variances.items(), key=lambda item: item[1]))
+    sorted_means = dict(sorted(means.items(), key=lambda item: item[1]))
+
+    plt.plot(sorted_variances.values(), ".-")
+    for idx, key in enumerate(sorted_variances.keys()):
+        plt.annotate(
+            key,
+            (idx, sorted_variances[key]),
+            textcoords="offset points",
+            xytext=(0, 10),
+            ha="center",
+        )
     plt.show()
