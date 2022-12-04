@@ -43,7 +43,6 @@ if __name__ == "__main__":
                 writer = csv.writer(cv)
                 a = [(key, variances[key], means[key]) for key in variances.keys()]
                 writer.writerows(a)
-            break
         else:
             print("Reading from file class_variances.csv")
             with open("class_variances.csv") as cv:
