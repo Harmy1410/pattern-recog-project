@@ -53,7 +53,9 @@ if __name__ == "__main__":
     # getting data
     ((X, Y), one_hot_map) = get_data_from_dir(DATASET_PATH)
     # converting from np.array is better/performant than from list
-    X, Y = tf.convert_to_tensor(np.array(X)), tf.convert_to_tensor(np.array(Y))
+    X, Y = tf.convert_to_tensor(np.array(X), dtype=tf.float32), tf.convert_to_tensor(
+        np.array(Y), dtype=tf.float32
+    )
 
     # shuffling
     indices = tf.range(start=0, limit=tf.shape(X)[0])
@@ -65,11 +67,12 @@ if __name__ == "__main__":
 
     # splitting data
     if dev == 1:
-        train_X, train_Y = (X[:640], Y[:640])
-
-        val_X, val_Y = (X[640:160], Y[640:160])
-
-        test_X, test_Y = (X[800:], Y[800:])
+        i = 5120
+        j = 6400
+        k = 8000
+        train_X, train_Y = (X[:i], Y[:i])
+        val_X, val_Y = (X[i:j], Y[i:j])
+        test_X, test_Y = (X[j:k], Y[j:k])
     else:
         train_X, train_Y = (
             X[: int(int(int(tf.shape(X)[0]) * 0.8) * 0.8)],
@@ -98,25 +101,36 @@ if __name__ == "__main__":
     model = tf.keras.models.Sequential()
     model.add(
         tf.keras.layers.Conv2D(
-            64,
-            (3, 3),
-            activation="relu",
-            input_shape=input_shape[1:],
+            filters=32,
+            kernel_size=5,
+            strides=1,
+            activation=tf.nn.relu,
+            kernel_initializer="he_normal",
         )
     )
-    model.add(tf.keras.layers.MaxPooling2D((2, 2)))
-    model.add(tf.keras.layers.Conv2D(64, (3, 3), activation="relu"))
-    model.add(tf.keras.layers.MaxPooling2D((2, 2)))
-    model.add(tf.keras.layers.Conv2D(64, (3, 3), activation="relu"))
+    model.add(tf.keras.layers.MaxPooling2D(strides=1, pool_size=2))
+    model.add(
+        tf.keras.layers.Conv2D(
+            filters=64,
+            kernel_size=5,
+            strides=1,
+            activation=tf.nn.relu,
+            kernel_initializer="he_normal",
+        )
+    )
+    model.add(tf.keras.layers.MaxPooling2D(strides=1, pool_size=2))
     model.add(tf.keras.layers.Flatten())
-    model.add(tf.keras.layers.Dense(64, activation="relu"))
-    model.add(tf.keras.layers.Dense(len(one_hot_map.keys())))
-
-    model.summary()
+    model.add(
+        tf.keras.layers.Dense(
+            units=1024, activation=tf.nn.relu, kernel_initializer="he_normal"
+        )
+    )
+    model.add(tf.keras.layers.Dropout(rate=5e-1))
+    model.add(tf.keras.layers.Dense(units=len(one_hot_map.keys())))
 
     model.compile(
-        optimizer="adam",
-        loss="sparse_categorical_crossentropy",
+        optimizer=tf.optimizers.Adam(learning_rate=1e-3),
+        loss=tf.losses.SparseCategoricalCrossentropy(from_logits=True),
         metrics=["accuracy"],
     )
 
@@ -126,6 +140,7 @@ if __name__ == "__main__":
         epochs=10,
         validation_data=(val_X, val_Y),
     )
+    model.summary()
 
     test_loss, test_acc = model.evaluate(test_X, test_Y)
 
