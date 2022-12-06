@@ -1,8 +1,8 @@
 import os
-import csv
 from tqdm import tqdm
 import numpy as np
-import matplotlib.pyplot as plt
+import numpy.typing as npt
+import tensorflow as tf
 
 dev = 1
 
@@ -12,7 +12,9 @@ else:
     DATASET_PATH = "./ds"
 
 
-def get_data_from_dir(path: str) -> dict[str, np.ndarray]:
+def get_data_from_dir(
+    path: str,
+) -> tuple[tuple[list, list], dict[int, str]]:
     data = {}
     for root, _, files in os.walk(path):
         for file in (pb := tqdm(files)):
@@ -20,13 +22,35 @@ def get_data_from_dir(path: str) -> dict[str, np.ndarray]:
             if "DS_Store" in file:
                 continue
             key = file[18:-4].lower().replace(" ", "_").replace("-", "_")
-            temp = np.load(root + "/" + file, allow_pickle=True)
-            data[key] = temp
-        break
-    return data
+            data[key] = np.load(root + "/" + file, allow_pickle=True)
+
+    class_map = {idx: v for idx, v in enumerate(data.keys())}
+
+    layer = tf.keras.layers.CategoryEncoding(
+        num_tokens=len(class_map.keys()), output_mode="one_hot"
+    )
+
+    one_hot_map = {}
+    for (idx, v) in enumerate(layer(class_map.keys())):
+        one_hot_map[class_map[idx]] = v
+
+    X = []
+    Y = []
+    for key, items in data.items():
+        for item in items:
+            X.append(item)
+            Y.append(one_hot_map[key])
+
+    return ((X, Y), one_hot_map)
 
 
 if __name__ == "__main__":
 
-    data = get_data_from_dir(DATASET_PATH)
-    print(data)
+    ((X, Y), one_hot_map) = get_data_from_dir(DATASET_PATH)
+    # converting from np.array is better/performant than from list
+    X, Y = tf.convert_to_tensor(np.array(X)), tf.convert_to_tensor(np.array(Y))
+    print(X.shape)
+    print(type(X))
+    print(Y.shape)
+
+    # print(data)
