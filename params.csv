@@ -1,0 +1,1 @@
+c1_filters, c1_kernel_size, c1_strides, c1_activation, m1_pool_size, c2_filters, c2_kernel_size, c2_strides, c2_activation, m2_pool_size, d1_units, do_rate, d2_units , kernel_initializer, lr, epochs, test_acc, test_loss
