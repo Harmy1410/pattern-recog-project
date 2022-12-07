@@ -15,4 +15,5 @@ if __name__ == '__main__':
             bar.title = '-> Downloading class %s' % label.capitalize()
             blob.download_to_filename('data/' + label + '.npy')
             bar()
+        bar.title = '-> Download Complete'
 
