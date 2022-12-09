@@ -10,15 +10,23 @@ import tensorflow as tf
 
 dev = 1
 
-if dev == 0:
-    DATASET_PATH = "./dataset/"
-else:
-    DATASET_PATH = "./ds/"
-
+DATASET_PATH = "./ds/"
 
 def get_data_from_dir(
     path: str,
 ) -> tuple[tuple[deque, deque], dict[str, int]]:
+    """Function for getting and preparing data
+
+    This function will return data and corrosponding labels, along
+    with a map of classes to get string labels.
+
+    Args:
+        path (str): Path to directory with .npy files.
+
+    Returns:
+        tuple[tuple[deque, deque], dict[str, int]]: A tuple with tuple of data and label,
+        and a map for classes.
+    """
     num_samples = 20_000
     X = deque()
     Y = deque()
@@ -45,22 +53,19 @@ def get_data_from_dir(
 
 if __name__ == "__main__":
 
-    # getting data
+    # Getting data
     ((X, Y), class_map) = get_data_from_dir(DATASET_PATH)
 
-    # converting from np.array is better/performant than from list
+    # Converting data and lables to tensors 
+    # Converting from np.array is better/performant than from list
     X, Y = tf.convert_to_tensor(np.array(X), dtype=tf.float32), tf.convert_to_tensor(np.array(Y), dtype=tf.int32)
 
-    # shuffling
+    # Shuffling the data as classes are contiguous
     indices = tf.range(start=0, limit=tf.shape(X)[0])
     shuffled_indices = tf.random.shuffle(indices)
     X, Y = tf.gather(X, shuffled_indices), tf.gather(Y, shuffled_indices)
 
-    input_shape = (tf.shape(X)[0], tf.shape(X)[1], tf.shape(X)[2], 1)
-
-    train_X, train_Y, val_X, val_Y, test_X, test_Y = 0, 0, 0, 0, 0, 0
-
-    # splitting data
+    # Splitting data for training and testing with 20% used as testing set and 20% of the training set used as validation set
     if dev == 1:
         k = 10_000
         j = int(k * 0.8)
@@ -81,7 +86,7 @@ if __name__ == "__main__":
             Y[int(int(tf.shape(Y)[0]) * 0.8) :],
         )
 
-    # model
+    # Defining CNN with 2 sets of Conv2D and Maxpooling2D layers, followed by a Flattening layer, Dense layer, Dropout layer, and another Dense layer
     model = tf.keras.models.Sequential()
     model.add(tf.keras.layers.Conv2D(filters=32, kernel_size=3, strides=1, activation=tf.nn.relu, kernel_initializer="he_normal"))
     model.add(tf.keras.layers.MaxPooling2D(strides=1, pool_size=2))
@@ -92,9 +97,10 @@ if __name__ == "__main__":
     model.add(tf.keras.layers.Dropout(rate=5e-1))
     model.add(tf.keras.layers.Dense(units=len(class_map.keys())))
 
+    # If model is already saved, load model.
     if exists("./checkpoints/model"):
         model = load_model("./checkpoints/model")
-
+    # Else compile, fit and save the model
     else:
         model.compile(
             optimizer=tf.optimizers.Adam(learning_rate=0.001),
@@ -110,22 +116,27 @@ if __name__ == "__main__":
         )
         model.save("./checkpoints/model")
 
+    # Printing model summary
     model.summary()
 
+    # Converting int labels to string labels
     test_labels = []
     for t in test_Y:
         test_labels.append(class_map[int(t)])
 
+    # Generate prediction using test data
     model_preds = model.predict(test_X.numpy(), verbose='0')
 
+    # Converting prediction values to string labels 
     pred_labels = []
     for p in (pb := tqdm(model_preds)):
         pb.set_description("converting predictions")
         pred_labels.append(class_map[np.argmax(p)])
 
-    print(test_Y)
+    # One Hot Encoding test_Y for AUC for ROC
     one_hot_test_Y = tf.one_hot(test_Y, depth=len(class_map.keys()))
 
+    # Generating and printing accuracy, AUC for ROC, and confusion matrix
     print(f"accuracy_score: \n{accuracy_score(test_labels, pred_labels)}")
     print(f"\nroc_auc_score: \n{roc_auc_score(np.array(one_hot_test_Y), model_preds)}")
     print(f"\nconfusion_matrix: \n{confusion_matrix(test_labels, pred_labels)}")
