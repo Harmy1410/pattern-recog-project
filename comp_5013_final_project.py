@@ -7,6 +7,8 @@ Original file is located at
     https://colab.research.google.com/drive/1vGfh9WScnd22DtFlyhJOag3KsgkG4rc1
 """
 
+__author__ = 'Asif Rasheed'
+
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix, roc_auc_score
@@ -18,17 +20,30 @@ from keras.callbacks import EarlyStopping
 from matplotlib import pyplot as plt
 from google.cloud import storage
 
-path = 'full/numpy_bitmap/'
-# We choose the 5 best performing classes from the paper.
+path = 'full/numpy_bitmap/' # path of the preprocessed data in the bucket
+# We choose the 5 best performing classes from the literature. 
 classes = ['airplane', 'car', 'bird', 'sailboat', 'truck']
 client = storage.Client.create_anonymous_client()
 bucket = client.bucket(bucket_name='quickdraw_dataset', user_project=None)
+# Downloads the classes to files
 for label in classes:
     temp_path = path + label +'.npy'
     blob = bucket.blob(temp_path)
     blob.download_to_filename(label + '.npy')
 
-def load_data(root: str = '', int_label=True) -> tuple:
+def load_data(root: str = './', int_label: bool = True) -> tuple:
+    """Function to load image data from given directory.
+
+    If the int_label flag is set to true, the label is one hot
+    encoded else the label is a string. The data is loaded
+    from the files already downloaded from the google bucket.
+
+    Args:
+        root: The directory containing the data files.
+        int_label: Flag to enable or disable one hot encoding the label.
+    Returns:
+        The normalized data and the labels
+    """
     labels = []
     data = None
     files = [dir for dir in listdir(root) if '.npy' in dir]
@@ -45,6 +60,20 @@ def load_data(root: str = '', int_label=True) -> tuple:
     return data.reshape(-1,28,28,1).astype('float') / np.max(data), labels
 
 def get_autoencoder(train_data, test_data) -> tuple:
+    """Function to generate autoencoder using the given data.
+
+    If the autoencoder was already trained, the function would
+    load the saved autoencoder model from file, extract the 
+    encoder and decoder and returns them. Else will compile
+    a new model and train it using the given data, save it to 
+    file and returns the encoder and decoder separately. 
+    
+    Args:
+        train_data: The data used to train the autoencoder.
+        test_data: The data used to validate the autoencoder.
+    Returns:
+        The enoder and the decoder.
+    """
     if exists('/content/autoencoder'):
         model = load_model('/content/autoencoder')
         encoder = Model(model.input, model.layers[2].output)
@@ -72,6 +101,15 @@ def get_autoencoder(train_data, test_data) -> tuple:
     return encoder, decoder
 
 def display(data, labels):
+    """Function to display samples from given dataset.
+    
+    The function will print one sample from each class
+    in the given dataset.
+    
+    Args:
+        data: The image data.
+        labels: The labels associated with it.
+    """
     labels_array = np.array(labels)
     classes = np.unique(labels_array)
 
@@ -84,6 +122,23 @@ def display(data, labels):
     plt.show()
   
 def get_model1(train_data, test_data, train_labels, test_labels) -> Model:
+    """Function to generate the original model from literature.
+    
+    The function, if the model was already trained, will load the model
+    from file and return it. Else it will compile the model and train
+    it using the data provided. There is an early stopping condition
+    with patience of 3 which will stop the training if the loss doesn't
+    decrease for 3 epochs. This is the modified version of the model
+    from the literature which could accept the encoded data.
+    
+    Args:
+        train_data: The encoded data used for training.
+        test_data: The encoded data used for validation.
+        train_labels: The one hot encoded labels associated with the train_data.
+        test_data: The one hot encoded labels associated with the test_data.
+    Returns:
+        The trained model from literature.
+    """
     if exists('/content/model1'):
         return load_model('/content/model1')
     
@@ -115,6 +170,23 @@ def get_model1(train_data, test_data, train_labels, test_labels) -> Model:
     return model
   
 def get_simplified_model1(train_data, test_data, train_labels, test_labels) -> Model:
+    """Function to generate the proposed simplified model.
+    
+    The function, if the model was already trained, will load the model
+    from file and return it. Else it will compile the model and train
+    it using the data provided. There is an early stopping condition
+    with patience of 3 which will stop the training if the loss doesn't
+    decrease for 3 epochs. This is the simplified model proposed in the 
+    paper.
+    
+    Args:
+        train_data: The encoded data used for training.
+        test_data: The encoded data used for validation.
+        train_labels: The one hot encoded labels associated with the train_data.
+        test_data: The one hot encoded labels associated with the test_data.
+    Returns:
+        The trained model.
+    """
     if exists('/content/simplified_model1'):
         return load_model('/content/simplified_model1')
     
@@ -139,40 +211,54 @@ def get_simplified_model1(train_data, test_data, train_labels, test_labels) -> M
     model.save('/content/simplified_model1')
     return model
 
+# Split data into training and testing sets with 80% data used for training and 20% for testing
 train_data, test_data, train_labels, test_labels = train_test_split(*load_data('/content/'), test_size=0.2)
+# Gets the autoencoder trained using the train data
 encoder, decoder = get_autoencoder(train_data, test_data)
 
+# Split the train data in to training and validation data with 80% data used for training and 20% for validation
+# In effect, 60% will be used for actual traning and 20% for validation and testing each
 train_data, valid_data, train_labels, valid_labels = train_test_split(train_data, train_labels, test_size=0.2)
+# Encodes the data
 encoded_train_data = encoder.predict(train_data)
 encoded_test_data = encoder.predict(test_data)
 encoded_valid_data = encoder.predict(valid_data)
 
+# Train the original model proposed in the literature using the encoded training data
 model1 = get_model1(encoded_train_data, encoded_valid_data, np.array(train_labels), np.array(valid_labels))
 
+# Train the proposed model using the encoded training data
 simplified_model1 = get_simplified_model1(encoded_train_data, encoded_valid_data, np.array(train_labels), np.array(valid_labels))
 
 char_labels = ['car', 'bird', 'airplane', 'truck', 'ship']
 
+# Converts the one-hot encoded labels into string labels
 char_test_labels = []
 for label in test_labels:
   char_test_labels.append(char_labels[label.index(1)])
 
+# Generate predictions using test data
 model_predictions = model1.predict(encoded_test_data)
 char_model_predictions = []
 
+# Convert the prediction into string 
 for label in model_predictions:
   char_model_predictions.append(char_labels[np.argmax(label)])
 
+# Generates the accuracy, AUC or ROC curve and Confusion Matrix for the model
 print(accuracy_score(char_test_labels, char_model_predictions))
 print(roc_auc_score(np.array(test_labels), model_predictions))
 confusion_matrix(char_test_labels, char_model_predictions)
 
+# Generate predictions using test data
 model_predictions = simplified_model1.predict(encoded_test_data)
 char_model_predictions = []
 
+# Convert the prediction into string 
 for label in model_predictions:
   char_model_predictions.append(char_labels[np.argmax(label)])
 
+# Generates the accuracy, AUC or ROC curve and Confusion Matrix for the model
 print(accuracy_score(char_test_labels, char_model_predictions))
 print(roc_auc_score(np.array(test_labels), model_predictions))
 confusion_matrix(char_test_labels, char_model_predictions)
