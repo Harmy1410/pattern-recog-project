@@ -12,9 +12,7 @@ dev = 1
 
 DATASET_PATH = "./ds/"
 
-def get_data_from_dir(
-    path: str,
-) -> tuple[tuple[deque, deque], dict[str, int]]:
+def get_data_from_dir(path: str) -> tuple[tuple[deque, deque], dict[str, int]]:
     """Function for getting and preparing data
 
     This function will return data and corrosponding labels, along
@@ -52,7 +50,6 @@ def get_data_from_dir(
 
 
 if __name__ == "__main__":
-
     # Getting data
     ((X, Y), class_map) = get_data_from_dir(DATASET_PATH)
 
